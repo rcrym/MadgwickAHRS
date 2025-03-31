@@ -25,9 +25,7 @@
 //-------------------------------------------------------------------------------------------
 // Definitions
 
-#define sampleFreqDef   512.0f          // sample frequency in Hz
-#define betaDef         0.1f            // 2 * proportional gain
-
+#define betaDef 0.1f // 2 * proportional gain
 
 //============================================================================================
 // Functions
@@ -35,17 +33,18 @@
 //-------------------------------------------------------------------------------------------
 // AHRS algorithm update
 
-Madgwick::Madgwick() {
+Madgwick::Madgwick()
+{
 	beta = betaDef;
 	q0 = 1.0f;
 	q1 = 0.0f;
 	q2 = 0.0f;
 	q3 = 0.0f;
-	invSampleFreq = 1.0f / sampleFreqDef;
 	anglesComputed = 0;
 }
 
-void Madgwick::update(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz) {
+void Madgwick::update(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz, float deltaT)
+{
 	float recipNorm;
 	float s0, s1, s2, s3;
 	float qDot1, qDot2, qDot3, qDot4;
@@ -53,8 +52,9 @@ void Madgwick::update(float gx, float gy, float gz, float ax, float ay, float az
 	float _2q0mx, _2q0my, _2q0mz, _2q1mx, _2bx, _2bz, _4bx, _4bz, _2q0, _2q1, _2q2, _2q3, _2q0q2, _2q2q3, q0q0, q0q1, q0q2, q0q3, q1q1, q1q2, q1q3, q2q2, q2q3, q3q3;
 
 	// Use IMU algorithm if magnetometer measurement invalid (avoids NaN in magnetometer normalisation)
-	if((mx == 0.0f) && (my == 0.0f) && (mz == 0.0f)) {
-		updateIMU(gx, gy, gz, ax, ay, az);
+	if ((mx == 0.0f) && (my == 0.0f) && (mz == 0.0f))
+	{
+		updateIMU(gx, gy, gz, ax, ay, az, deltaT);
 		return;
 	}
 
@@ -70,7 +70,8 @@ void Madgwick::update(float gx, float gy, float gz, float ax, float ay, float az
 	qDot4 = 0.5f * (q0 * gz + q1 * gy - q2 * gx);
 
 	// Compute feedback only if accelerometer measurement valid (avoids NaN in accelerometer normalisation)
-	if(!((ax == 0.0f) && (ay == 0.0f) && (az == 0.0f))) {
+	if (!((ax == 0.0f) && (ay == 0.0f) && (az == 0.0f)))
+	{
 
 		// Normalise accelerometer measurement
 		recipNorm = invSqrt(ax * ax + ay * ay + az * az);
@@ -133,10 +134,10 @@ void Madgwick::update(float gx, float gy, float gz, float ax, float ay, float az
 	}
 
 	// Integrate rate of change of quaternion to yield quaternion
-	q0 += qDot1 * invSampleFreq;
-	q1 += qDot2 * invSampleFreq;
-	q2 += qDot3 * invSampleFreq;
-	q3 += qDot4 * invSampleFreq;
+	q0 += qDot1 * deltaT;
+	q1 += qDot2 * deltaT;
+	q2 += qDot3 * deltaT;
+	q3 += qDot4 * deltaT;
 
 	// Normalise quaternion
 	recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
@@ -150,11 +151,12 @@ void Madgwick::update(float gx, float gy, float gz, float ax, float ay, float az
 //-------------------------------------------------------------------------------------------
 // IMU algorithm update
 
-void Madgwick::updateIMU(float gx, float gy, float gz, float ax, float ay, float az) {
+void Madgwick::updateIMU(float gx, float gy, float gz, float ax, float ay, float az, float deltaT)
+{
 	float recipNorm;
 	float s0, s1, s2, s3;
 	float qDot1, qDot2, qDot3, qDot4;
-	float _2q0, _2q1, _2q2, _2q3, _4q0, _4q1, _4q2 ,_8q1, _8q2, q0q0, q1q1, q2q2, q3q3;
+	float _2q0, _2q1, _2q2, _2q3, _4q0, _4q1, _4q2, _8q1, _8q2, q0q0, q1q1, q2q2, q3q3;
 
 	// Convert gyroscope degrees/sec to radians/sec
 	gx *= 0.0174533f;
@@ -168,7 +170,8 @@ void Madgwick::updateIMU(float gx, float gy, float gz, float ax, float ay, float
 	qDot4 = 0.5f * (q0 * gz + q1 * gy - q2 * gx);
 
 	// Compute feedback only if accelerometer measurement valid (avoids NaN in accelerometer normalisation)
-	if(!((ax == 0.0f) && (ay == 0.0f) && (az == 0.0f))) {
+	if (!((ax == 0.0f) && (ay == 0.0f) && (az == 0.0f)))
+	{
 
 		// Normalise accelerometer measurement
 		recipNorm = invSqrt(ax * ax + ay * ay + az * az);
@@ -209,11 +212,11 @@ void Madgwick::updateIMU(float gx, float gy, float gz, float ax, float ay, float
 		qDot4 -= beta * s3;
 	}
 
-	// Integrate rate of change of quaternion to yield quaternion
-	q0 += qDot1 * invSampleFreq;
-	q1 += qDot2 * invSampleFreq;
-	q2 += qDot3 * invSampleFreq;
-	q3 += qDot4 * invSampleFreq;
+	// Integrate rate of change of quaternion using deltaT
+	q0 += qDot1 * deltaT;
+	q1 += qDot2 * deltaT;
+	q2 += qDot3 * deltaT;
+	q3 += qDot4 * deltaT;
 
 	// Normalise quaternion
 	recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
@@ -228,12 +231,17 @@ void Madgwick::updateIMU(float gx, float gy, float gz, float ax, float ay, float
 // Fast inverse square-root
 // See: http://en.wikipedia.org/wiki/Fast_inverse_square_root
 
-float Madgwick::invSqrt(float x) {
+float Madgwick::invSqrt(float x)
+{
 	float halfx = 0.5f * x;
-	float y = x;
-	long i = *(long*)&y;
-	i = 0x5f3759df - (i>>1);
-	y = *(float*)&i;
+	union
+	{
+		float f;
+		long l;
+	} i;
+	i.f = x;
+	i.l = 0x5f3759df - (i.l >> 1);
+	float y = i.f;
 	y = y * (1.5f - (halfx * y * y));
 	y = y * (1.5f - (halfx * y * y));
 	return y;
@@ -243,9 +251,8 @@ float Madgwick::invSqrt(float x) {
 
 void Madgwick::computeAngles()
 {
-	roll = atan2f(q0*q1 + q2*q3, 0.5f - q1*q1 - q2*q2);
-	pitch = asinf(-2.0f * (q1*q3 - q0*q2));
-	yaw = atan2f(q1*q2 + q0*q3, 0.5f - q2*q2 - q3*q3);
+	roll = atan2f(q0 * q1 + q2 * q3, 0.5f - q1 * q1 - q2 * q2);
+	pitch = asinf(-2.0f * (q1 * q3 - q0 * q2));
+	yaw = atan2f(q1 * q2 + q0 * q3, 0.5f - q2 * q2 - q3 * q3);
 	anglesComputed = 1;
 }
-
